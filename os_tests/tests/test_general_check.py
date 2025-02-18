@@ -399,12 +399,10 @@ available_clocksource'
             2
         component:
             dmidecode
-        bug_id:
-            bugzilla_1885823
-        is_customer_case:
-            True
-        attached_customer_cases:
-            3
+        bugzilla_id:
+            1885823
+        customer_case_id:
+            02939365
         polarion_id:
             n/a
         maintainer:
@@ -417,10 +415,14 @@ available_clocksource'
             No segmentation fault found.
         '''
         utils_lib.is_cmd_exist(self, cmd='dmidecode')
-        
-        cmd = "sudo dmidecode --dump-bin /tmp/dmidecode_debug.bin"
-        utils_lib.run_cmd(self, cmd, msg='save dmidecode_debug.bin for debug purpose, please attach it if file bug')
-        utils_lib.save_file(self, file_dir='/tmp', file_name='dmidecode_debug.bin')
+        if self.params.get('remote_node') is not None:
+            binfile = '/tmp/dmidecode_debug.bin'
+            cmd = "sudo dmidecode --dump-bin {}".format(binfile)
+            utils_lib.run_cmd(self, cmd, msg='save dmidecode_debug.bin for debug purpose, please attach it if file bug')
+            self.SSH.get_file(rmt_file=binfile,local_file='{}/attachments/dmidecode_debug.bin'.format(self.log_dir))
+        else:
+            cmd = "sudo dmidecode --dump-bin {}/attachments/dmidecode_debug.bin".format(self.log_dir)
+            utils_lib.run_cmd(self, cmd, msg='save dmidecode_debug.bin for debug purpose, please attach it if file bug')
         cmd = "sudo dmidecode --dump"
         utils_lib.run_cmd(self, cmd, expect_ret=0, expect_not_kw='Segmentation')
 
@@ -430,8 +432,8 @@ available_clocksource'
             test_check_dmidecode_outofspec
         component:
             dmidecode
-        bug_id:
-            bugzilla_1858350, jira_RHEL-61831
+        bugzilla_id:
+            1858350
         maintainer:
             xiliang@redhat.com
         is_customer_case:
@@ -447,9 +449,8 @@ available_clocksource'
             dmidecode_debug.bin
         """
         utils_lib.is_cmd_exist(self, cmd='dmidecode')
-        cmd = "sudo dmidecode --dump-bin /tmp/dmidecode_debug.bin"
+        cmd = "sudo dmidecode --dump-bin {}/attachments/dmidecode_debug.bin".format(self.log_dir)
         utils_lib.run_cmd(self, cmd, msg='save dmidecode_debug.bin for debug purpose, please attach it if file bug')
-        utils_lib.save_file(self, file_dir='/tmp', file_name='dmidecode_debug.bin')
         utils_lib.check_log(self,'OUT OF SPEC', log_cmd='sudo dmidecode', expect_ret=0, msg='Check there is no "OUT OF SPEC" in dmidecode output')
 
     def test_check_cpu_vulnerabilities(self):
@@ -809,8 +810,8 @@ itlb_multihit|grep -v 'no microcode'|grep -v retbleed|sed 's/:/^/' | column -t -
             2
         component:
             journal
-        bug_id:
-            bugzilla_1855252,jira_RHEL-42706
+        bugzilla_id:
+            1855252
         customer_case_id:
             
         polarion_id:
@@ -883,13 +884,11 @@ itlb_multihit|grep -v 'no microcode'|grep -v retbleed|sed 's/:/^/' | column -t -
         case_name:
             test_check_journalctl_invalid
         component:
-            journal
-        bug_id:
-            bugzilla_1750417
+            sg3_utils
+        bugzilla_id:
+            1750417
         is_customer_case:
             True
-        attached_customer_cases:
-            4
         maintainer:
             xiliang@redhat.com
         description:
@@ -901,6 +900,10 @@ itlb_multihit|grep -v 'no microcode'|grep -v retbleed|sed 's/:/^/' | column -t -
         debug_want:
             journal log
         """
+        '''
+        polarion_id:
+        bz:1750417
+        '''
         utils_lib.check_log(self, 'invalid', skip_words="Invalid user,invalid user", rmt_redirect_stdout=True)
 
     def test_check_journalctl_service_unknown_lvalue(self):
@@ -1655,7 +1658,7 @@ in cmdline as bug1859088")
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -1814,8 +1817,6 @@ current_device"
         elif 'VMware' in lscpu_output:
             self.log.info("Found it is a vmware system!")
             self.assertIn('vmware', virt_what_output)
-        elif utils_lib.is_gcp(self):
-            self.assertEqual('google_cloud\nkvm\n', virt_what_output)
         elif 'KVM' in lscpu_output:
             if utils_lib.is_ahv(self):
                 self.log.info("Found it is a Nutanix AHV system!")
@@ -1984,8 +1985,6 @@ current_device"
             self.skipTest('No insights-client installation found!')
         utils_lib.run_cmd(self, 'rpm -q insights-client', msg="get insights-client version")
         utils_lib.run_cmd(self, 'insights-client --version', msg="get insights client version, debug want", timeout=120)
-
-        utils_lib.rhsm_register(self, cancel_case=True)
         out = utils_lib.run_cmd(self, 'sudo insights-client --register', msg="try to register system", timeout=120)
         if 'Unauthorized' in out:
             self.skipTest("Missing RHSM or basic username/password to register insights.")
@@ -2035,15 +2034,6 @@ current_device"
             self.SSH.get_file(rmt_file='/tmp/{}'.format(file_name),local_file='{}/attachments/{}'.format(self.log_dir,file_name))
         else:
             utils_lib.run_cmd(self, 'sudo cp {} {}/attachments/'.format(gz_file, self.log_dir))
-        utils_lib.run_cmd(self, 'insights-client --version', msg="get insights client version after register", timeout=120)
-        insights_client_log = "/var/log/insights-client/insights-client.log"
-        insights_client_log_file_name = os.path.basename(insights_client_log)
-        if self.params.get('remote_node') is not None:
-            utils_lib.run_cmd(self, 'sudo cp {} /tmp/'.format(insights_client_log))
-            utils_lib.run_cmd(self, 'sudo chmod 777 /tmp/{}'.format(insights_client_log_file_name))
-            self.SSH.get_file(rmt_file='/tmp/{}'.format(insights_client_log_file_name),local_file='{}/attachments/{}'.format(self.log_dir,insights_client_log_file_name))
-        else:
-            utils_lib.run_cmd(self, 'sudo cp {} {}/attachments/'.format(insights_client_log, self.log_dir))
         try:
             tmp_dict = json.loads(result_out)
             if len(tmp_dict) > 0:
@@ -2082,7 +2072,11 @@ current_device"
         sosfile = sosfile.strip('\n')
         cmd = 'sudo chmod 766 {}'.format(sosfile)
         utils_lib.run_cmd(self, cmd, expect_ret=0)
-        utils_lib.save_file(self, file_dir=os.path.dirname(sosfile), file_name=os.path.basename(sosfile))
+        if self.params.get('remote_node') is not None:
+            self.SSH.get_file(rmt_file=sosfile,local_file='{}/attachments/{}'.format(self.log_dir,os.path.basename(sosfile)))
+        else:
+            cmd = "cp {} {}/attachments/{}".format(sosfile, self.log_dir,os.path.basename(sosfile) )
+            utils_lib.run_cmd(self, cmd, msg='save {} to {}'.format(sosfile, self.log_dir))
 
     def test_check_dmesg_sev(self):
         """
@@ -2105,188 +2099,28 @@ current_device"
         key_steps:
             # dmesg|grep -i sev
         expect_result:
-            "AMD Memory Encryption Features active: SEV"
+            AMD Memory Encryption Features active: SEV
         debug_want:
             # dmesg
         """
         try:
-            if not self.vm or utils_lib.confidential_instance_type(self) == 'SEV' or utils_lib.is_sev_enabled(self):
+            if utils_lib.is_sev_enabled(self):
                 # https://gitlab.com/redhat/centos-stream/src/kernel/centos-stream-9/-/merge_requests/875/diffs?commit_id=ea66ccfe756058c054f6c32b30f79e69e2b77c08#1314bf7c9c25b9572d0a973f6be52499f0478e85
-                cmd = 'sudo dmesg | grep -v os_tests | grep -i sev'
-                ret = utils_lib.run_cmd(self, cmd, ret_status=True, msg="Check if there is SEV in dmesg")
-                if ret == 0:
-                    ret = utils_lib.run_cmd(self, 'sudo dmesg | grep -i sev-snp', ret_status=True, msg="Check if there is 'SEV-SNP' in dmesg")
-                    if ret ==0:
-                        self.fail('SEV-SNP feature but not SEV is enabled in vm.')
-                    else:
-                        v = utils_lib.get_product_id(self)
-                        x = int(v.split(".")[0])
-                        y = int(v.split(".")[1])
-                        if x < 8 or (x == 8 and y >= 8) or (x == 9 and y >= 2) or x > 9:
-                            utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i sev', expect_ret=0,
-                                            expect_kw='Memory Encryption Features active: AMD SEV',
-                                            expect_not_kw='SEV-SNP',
-                                            msg="Check there is 'Memory Encryption Features active: AMD SEV' in dmesg before run 'perf top'")
-                        else:
-                            utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i sev', expect_ret=0,
-                                            expect_kw='AMD Memory Encryption Features active: SEV',
-                                            expect_not_kw='SEV-SNP',
-                                            msg="Check there is 'AMD Memory Encryption Features active: SEV' in dmesg before run 'perf top'")               
+                v = utils_lib.get_product_id(self)
+                x = int(v.split(".")[0])
+                y = int(v.split(".")[1])
+                if x < 8 or (x == 8 and y >= 8) or (x == 9 and y >= 2) or x > 9:
+                    utils_lib.run_cmd(self, 'sudo dmesg', expect_ret=0,
+                                      expect_kw='Memory Encryption Features active: AMD SEV',
+                                      msg="Check there is 'Memory Encryption Features active: AMD SEV' in dmesg before run 'perf top'")
                 else:
-                    if not self.vm:
-                        fail_log = 'Please check if SEV is enabled in vm'
-                    else:
-                        fail_log = 'SEV is enabled but no SEV keyword in dmesg, please check this issue'
-                    self.fail('%s' % fail_log)                
+                    utils_lib.run_cmd(self, 'sudo dmesg', expect_ret=0,
+                                      expect_kw='AMD Memory Encryption Features active: SEV',
+                                      msg="Check there is 'AMD Memory Encryption Features active: SEV' in dmesg before run 'perf top'")
             else:
                 self.skipTest('SEV is not enabled')
         except NotImplementedError:
-            self.skipTest('SEV check is not implemented on %s' % self.vm.provider)
-    
-    def test_check_dmesg_snp(self):
-        """
-        case_name:
-            test_check_dmesg_snp
-        case_file:
-            os_tests.tests.test_general_check.TestGeneralCheck.test_check_dmesg_snp
-        component:
-            kernel
-        bugzilla_id:
-            RHEL-70465
-        customer_case_id:
-            False
-        testplan:
-            N/A
-        maintainer:
-            linl@redhat.com
-        description:
-            Make sure there is TDX keyword from dmesg output.
-        key_steps:
-            # dmesg|grep -i SEV-SNP
-        expect_result:
-            "SEV-SNP"
-        debug_want:
-            # dmesg
-        """
-        try:
-            if not self.vm or utils_lib.confidential_instance_type(self) == 'SEV_SNP':
-                cmd = 'sudo dmesg | grep -v os_tests | grep -i SEV-SNP'
-                ret = utils_lib.run_cmd(self, cmd, ret_status=True, msg="Check if there is SEV-SNP in dmesg")
-                if ret == 0:
-                    utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i SEV-SNP', expect_ret=0,
-                                    expect_kw='Memory Encryption Features active: AMD SEV SEV-ES SEV-SNP',
-                                    msg="Check there is 'Memory Encryption Features active: AMD SEV SEV-ES SEV-SNP' in dmesg before run 'perf top'")
-                else:
-                    if not self.vm:
-                        fail_log = 'Please check if SEV-SNP is enabled in vm'
-                    else:
-                        fail_log = 'SEV-SNP is enabled but no SEV-SNP keyword in dmesg, please check this issue'
-                    self.fail('%s' % fail_log)
-            else:
-                self.skipTest('SEV-SNP is not enabled')
-        except NotImplementedError:
-                self.skipTest('SEV-SNP check is not implemented on %s' % self.vm.provider)
-
-    def test_check_dmesg_tdx(self):
-        """
-        case_name:
-            test_check_dmesg_tdx
-        case_file:
-            os_tests.tests.test_general_check.TestGeneralCheck.test_check_dmesg_tdx
-        component:
-            kernel
-        bugzilla_id:
-            RHEL-70465
-        customer_case_id:
-            False
-        testplan:
-            N/A
-        maintainer:
-            linl@redhat.com
-        description:
-            Make sure there is TDX keyword from dmesg output.
-        key_steps:
-            # dmesg|grep -i tdx
-        expect_result:
-            "TDX"
-        debug_want:
-            # dmesg
-        """
-        try:
-            if not self.vm or utils_lib.confidential_instance_type(self) == 'TDX':
-                cmd = 'sudo dmesg | grep -v os_tests | grep -i tdx'
-                ret = utils_lib.run_cmd(self, cmd, ret_status=True, msg="Check if there is TDX in dmesg")
-                if ret == 0:
-                    v = utils_lib.get_product_id(self)
-                    x = int(v.split(".")[0])
-                    y = int(v.split(".")[1])
-                    if x<9:
-                        utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i tdx', expect_ret=0,
-                                        expect_kw='Intel TDX',
-                                        msg="Check there is 'Intel TDX' in dmesg before run 'perf top'")
-                    else:
-                        utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i tdx', expect_ret=0,
-                                        expect_kw='Memory Encryption Features active: Intel TDX',
-                                        msg="Check there is 'Memory Encryption Features active: Intel TDX' in dmesg before run 'perf top'")
-                    if x >9 or (x == 9 and y > 5):
-                        utils_lib.run_cmd(self, 'sudo dmesg | grep -v os_tests | grep -i tdx', expect_ret=0,
-                                        expect_not_kw='TECH PREVIEW',
-                                        msg="TDX is full supported after RHEL 9.5.")
-                else:
-                    if not self.vm:
-                        fail_log = 'Please check if TDX is enabled in vm'
-                    else:
-                        fail_log = 'TDX is enabled but no TDX keyword in dmesg, please check this issue'
-                    self.fail('%s' % fail_log)
-            else:
-                self.skipTest('TDX is not enabled')
-        except NotImplementedError:
-                self.skipTest('TDX check is not implemented on %s' % self.vm.provider)
-
-    def test_check_tpm(self):
-        """
-        case_name:
-            test_check_tpm
-        case_file:
-            os_tests.tests.test_general_check.TestGeneralCheck.test_check_tpm
-        component:
-            kernel
-        bugzilla_id:
-            RHEL-75512
-        customer_case_id:
-            False
-        testplan:
-            N/A
-        maintainer:
-            linl@redhat.com
-        description:
-            Make sure there is tpm keyword from dmesg output and tpm in /dev.
-        key_steps:
-            # sudo dmesg|grep -i tpm
-            # ls /dev/tpm*
-        expect_result:
-            "tpm"
-        debug_want:
-            # dmesg
-        """
-        try:
-            if not self.vm or utils_lib.is_tpm_enabled(self):
-                cmd = 'sudo dmesg | grep -v os_tests | grep -i tpm'
-                ret = utils_lib.run_cmd(self, cmd, ret_status=True, msg="Check if there is tpm in dmesg")
-                if ret == 0:
-                    ret = utils_lib.run_cmd(self, 'ls /dev/tpm*', ret_status=True, msg="Check if there is tpm dev")
-                    if ret != 0:
-                        self.fail('TPM feature is enabled but there is no /dev/tpm*, please check the issue.')
-                else:
-                    if not self.vm:
-                        fail_log = 'Please check if the TPM feature is enabled in vm'
-                    else:
-                        fail_log = 'The TPM feature is enabled, please check if it is an issue'
-                    self.fail('%s' % fail_log)
-            else:
-                self.skipTest('TPM feature is not enabled')
-        except NotImplementedError:
-                self.skipTest('TPM check is not implemented on %s' % self.vm.provider)
+                self.skipTest('SEV check is not implemented on %s' % self.vm.provider)
 
     def test_check_secure_ioerror(self):
         """

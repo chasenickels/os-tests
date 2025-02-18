@@ -67,25 +67,11 @@ class LibvirtVM(VMResource):
         dom = self.conn.lookupByUUIDString(uuid)
         net = dom.interfaceAddresses(
             libvirt.VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)
-        
-        LOG.debug(f"Interfaces for VM {self.vm_name}: {net}")
-        
+
         for k, v in net.items():
-            LOG.debug(f"Interface: {k}, Details: {v}")
             if v["addrs"]:
                 for ipaddr in v["addrs"]:
                     f_ip = ipaddr["addr"]
-                    LOG.info(f"Floating IP found: {f_ip}")
-                    return f_ip
-
-        if not f_ip:
-            LOG.warning(f"No floating IP found for VM {self.vm_name}. Checking VM status.")
-            state, reason = self.get_state()
-            state_str = self._get_state_string(state)
-            reason_str = self._get_reason_string(state, reason)
-            LOG.info(f"VM {self.vm_name} - State: {state_str}, Reason: {reason_str}")
-
-        LOG.info("ip is %s" % f_ip) 
         return f_ip
 
     @property
@@ -161,7 +147,7 @@ secure='yes' type='pflash'>/usr/share/OVMF/OVMF_CODE.secboot.fd</loader>")
         dom.create()
         if wait:
             for count in utils_lib.iterate_timeout(
-                    300, "Timed out waiting for server to get Created."):
+                    90, "Timed out waiting for server to get Created."):
                 if self.exists() and self.floating_ip:
                     break
         self._data = None
@@ -238,36 +224,7 @@ secure='yes' type='pflash'>/usr/share/OVMF/OVMF_CODE.secboot.fd</loader>")
         self.data = self.vm_name
         dom = self.conn.lookupByUUIDString(self.data.get("uuid"))
         state, reason = dom.state()
-        state_str = self._get_state_string(state)
-        reason_str = self._get_reason_string(state, reason)
-        LOG.info(f"VM {self.vm_name} - State: {state_str}, Reason: {reason_str}")
-        return state, reason
-    
-    def _get_state_string(self, state):
-        state_dict = {
-            libvirt.VIR_DOMAIN_RUNNING: "Running",
-            libvirt.VIR_DOMAIN_SHUTDOWN: "Shutdown",
-            libvirt.VIR_DOMAIN_SHUTOFF: "Shutoff",
-            libvirt.VIR_DOMAIN_PAUSED: "Paused",
-            libvirt.VIR_DOMAIN_CRASHED: "Crashed",
-            libvirt.VIR_DOMAIN_PMSUSPENDED: "Suspended",
-            }
-        return state_dict.get(state, f"Unknown ({state})")
-
-    def _get_reason_string(self, state, reason):
-        reason_dict = {
-            libvirt.VIR_DOMAIN_RUNNING: {
-            libvirt.VIR_DOMAIN_RUNNING_BOOTED: "Booted",
-            libvirt.VIR_DOMAIN_RUNNING_MIGRATED: "Migrated",
-            libvirt.VIR_DOMAIN_RUNNING_RESTORED: "Restored",
-            },
-            libvirt.VIR_DOMAIN_SHUTOFF: {
-            libvirt.VIR_DOMAIN_SHUTOFF_DESTROYED: "Destroyed",
-            libvirt.VIR_DOMAIN_SHUTOFF_CRASHED: "Crashed",
-            libvirt.VIR_DOMAIN_SHUTOFF_SHUTDOWN: "Shutdown",
-            },
-        }
-        return reason_dict.get(state, {}).get(reason, f"Unknown ({reason})")
+        return state
 
     def get_state(self):
         return self._get_status()

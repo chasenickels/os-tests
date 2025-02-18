@@ -71,7 +71,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             medium
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -93,7 +93,7 @@ class TestLifeCycle(unittest.TestCase):
         test_type:
             functional
         test_level:
-           component
+           Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -145,15 +145,11 @@ class TestLifeCycle(unittest.TestCase):
             utils_lib.run_cmd(self, cmd, expect_ret=0, msg="change default boot index")
         cmd = 'cat /proc/cmdline'
         cmd_options = utils_lib.run_cmd(self, cmd)
-        cmd = 'cat /proc/cpuinfo |grep processor|wc -l'
-        cpucount = utils_lib.run_cmd(self, cmd, msg='get cpu count')
-        self.log.info("Do not collect memory leak when cpucount is over 36 - RHEL-65525")
-        if int(cpucount) <= 36:
-            if 'kmemleak=on' not in cmd_options:
-                need_reboot = True
-                cmd = 'sudo grubby --update-kernel=ALL --args="kmemleak=on"'
-                utils_lib.run_cmd(self, cmd, expect_ret=0, msg="enable kmemleak")
+        if 'kmemleak=on' not in cmd_options:
+            need_reboot = True
         if need_reboot:
+            cmd = 'sudo grubby --update-kernel=ALL --args="kmemleak=on"'
+            utils_lib.run_cmd(self, cmd, expect_ret=0, msg="enable kmemleak")
             utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
             time.sleep(10)
             utils_lib.init_connection(self, timeout=self.ssh_timeout)
@@ -181,7 +177,7 @@ class TestLifeCycle(unittest.TestCase):
             self.log.info("Wait for bootup finish......")
             time.sleep(1)
         utils_lib.run_cmd(self, "sudo dmesg", expect_not_kw="Call trace,Call Trace")
-        if int(mini_mem) <= 32 and int(cpucount) <= 36:
+        if int(mini_mem) <= 32:
             cmd = 'sudo bash -c "echo scan > /sys/kernel/debug/kmemleak"'
             utils_lib.run_cmd(self, cmd, expect_ret=0, timeout=1800)
 
@@ -203,7 +199,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             high
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -265,7 +261,7 @@ class TestLifeCycle(unittest.TestCase):
             utils_lib.run_cmd(self, 'sudo dmesg', msg='save dmesg')
             cmd = 'sudo grubby --update-kernel=ALL  --remove-args="fips=1"'
             utils_lib.run_cmd(self, cmd, msg='Disable fips!')
-        elif 'el8' in output or 'el9' in output:
+        else:
             fips_enable_cmd = 'sudo fips-mode-setup --enable'
             out = utils_lib.run_cmd(self, fips_enable_cmd, msg='Enable fips!', timeout=600)
             if 'No space left' in out:
@@ -273,12 +269,6 @@ class TestLifeCycle(unittest.TestCase):
                 cmd = 'sudo dnf remove kernel-debug -y'
                 utils_lib.run_cmd(self, cmd, msg='remove debug kernel to save space')
                 utils_lib.run_cmd(self, fips_enable_cmd, msg='Enable fips again!', timeout=600)
-            if 'OSTree' in out:
-                cmd = 'sudo fips-mode-setup --enable --no-bootcfg'
-                utils_lib.run_cmd(self, cmd, msg='append no-bootcfg in bootc image')
-                cmd = 'sudo rpm-ostree kargs --append=fips=1'
-                utils_lib.run_cmd(self, cmd, timeout=600, msg='append fips=1 to boot param')
-
             utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
             time.sleep(10)
             utils_lib.init_connection(self, timeout=self.ssh_timeout)
@@ -287,26 +277,8 @@ class TestLifeCycle(unittest.TestCase):
                         expect_kw='enabled')
             utils_lib.run_cmd(self, 'cat /proc/cmdline', expect_kw='fips=1')
             utils_lib.run_cmd(self, 'sudo dmesg', msg='save dmesg')
-
             cmd = 'sudo fips-mode-setup --disable'
-            if 'OSTree' in out:
-                cmd = cmd + ' --no-bootcfg'
             utils_lib.run_cmd(self, cmd, msg='Disable fips!')
-        else:
-            if utils_lib.is_ostree_system(self):
-                fips_enable_cmd = 'sudo rpm-ostree kargs --append=fips=1'
-            else:
-                # RHEL-65652 Remove fips-mode-setup, below steps are only for test purpose
-                boot_partition = utils_lib.run_cmd(self, 'findmnt --first --noheadings -o SOURCE /boot', msg='find boot partition')
-                boot_uuid = utils_lib.run_cmd(self, 'sudo blkid --output value --match-tag UUID {}'.format(boot_partition.strip('\n')),expect_ret=0,msg='find boot partition uuid')
-                fips_enable_cmd = 'sudo grubby --update-kernel=ALL --args="fips=1 boot=UUID={}"'.format(boot_uuid.strip('\n'))
-
-            out = utils_lib.run_cmd(self, fips_enable_cmd, msg='Enable fips!', timeout=600)
-            utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
-            time.sleep(10)
-            utils_lib.init_connection(self, timeout=self.ssh_timeout)
-            utils_lib.run_cmd(self, 'cat /proc/cmdline', expect_kw='fips=1')
-            utils_lib.run_cmd(self, 'sudo dmesg', expect_kw="fips mode: enabled", msg='save dmesg')
 
     def test_boot_hpet_mmap_enabled(self):
         """
@@ -321,7 +293,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -343,7 +315,7 @@ class TestLifeCycle(unittest.TestCase):
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -361,10 +333,7 @@ class TestLifeCycle(unittest.TestCase):
                     expect_ret=0,
                     msg='clean /var/crash firstly')
         utils_lib.is_arch(self, arch='x86', action='cancel')
-        if utils_lib.is_ostree_system(self):
-            cmd = 'sudo rpm-ostree kargs --append="hpet_mmap=1"'
-        else:
-            cmd = 'sudo grubby --update-kernel=ALL --args="hpet_mmap=1"'
+        cmd = 'sudo grubby --update-kernel=ALL --args="hpet_mmap=1"'
         utils_lib.run_cmd(self, cmd, msg='Append hpet_mmap=1 to command line!', timeout=600)
         utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
         time.sleep(10)
@@ -390,10 +359,7 @@ class TestLifeCycle(unittest.TestCase):
         cpucount = utils_lib.run_cmd(self, cmd, msg='get cpu count')
         if int(cpucount) > 36:
             self.skipTest("skip when cpu count over 36 when nosmt passing")
-        if utils_lib.is_ostree_system(self):
-            cmd = 'sudo rpm-ostree kargs --append="mitigations=auto,nosmt"'
-        else:
-            cmd = 'sudo grubby --update-kernel=ALL --args="mitigations=auto,nosmt"'
+        cmd = 'sudo grubby --update-kernel=ALL --args="mitigations=auto,nosmt"'
         utils_lib.run_cmd(self, cmd, msg='Append mitigations=auto,nosmt to command line!', timeout=600)
         utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
         time.sleep(10)
@@ -409,10 +375,7 @@ class TestLifeCycle(unittest.TestCase):
         utils_lib.run_cmd(self, r'sudo rm -rf /var/crash/*',
                     expect_ret=0, msg='clean /var/crash firstly')
         option = 'usbcore.quirks=quirks=0781:5580:bk,0a5c:5834:gij'
-        if utils_lib.is_ostree_system(self):
-            cmd = 'sudo rpm-ostree kargs --append="{}"'.format(option)
-        else:
-            cmd = 'sudo grubby --update-kernel=ALL --args="{}"'.format(option)
+        cmd = 'sudo grubby --update-kernel=ALL --args="{}"'.format(option)
         utils_lib.run_cmd(self, cmd, msg='Append {} to command line!'.format(option), timeout=600)
         utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
         time.sleep(10)
@@ -437,7 +400,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             medium
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -459,7 +422,7 @@ class TestLifeCycle(unittest.TestCase):
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -499,7 +462,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             medium
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -521,13 +484,13 @@ class TestLifeCycle(unittest.TestCase):
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             libhe@redhat.com
         description: |
             Check system can boot up with mem_encryp on 
         key_steps: |
-            - add mem_encrypt=on to kernel cmdline and reboot system
+            - add mem_encryp=on to kernel cmdline and reboot system
         expected_result: |
             - system can boot up successfully without any error
             - mem_encryp option is enabled
@@ -539,16 +502,13 @@ class TestLifeCycle(unittest.TestCase):
                     r'sudo rm -rf /var/crash/*',
                     expect_ret=0,
                     msg='clean /var/crash firstly')
-        if utils_lib.is_ostree_system(self):
-            cmd = 'sudo rpm-ostree kargs --append="mem_encrypt=on"'
-        else:
-            cmd = 'sudo grubby --update-kernel=ALL --args="mem_encrypt=on"'
+        cmd = 'sudo grubby --update-kernel=ALL --args="mem_encrypt=on"'
         utils_lib.run_cmd(self, cmd, msg='Append mem_encrypt=on to command line!', timeout=600)
         utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
         time.sleep(10)
         utils_lib.init_connection(self, timeout=self.ssh_timeout)
         utils_lib.run_cmd(self, 'cat /proc/cmdline', expect_kw='mem_encrypt=on')
-        utils_lib.run_cmd(self, 'sudo dmesg | grep -i mem_encrypt', expect_kw='mem_encrypt=on')
+        utils_lib.run_cmd(self, 'sudo dmesg | grep -i mem_encrypt', expect_kw='=on')
         utils_lib.check_log(self, "CallTrace", skip_words='ftrace', rmt_redirect_stdout=True)
 
     def test_kdump_no_specify_cpu(self):
@@ -786,7 +746,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -808,7 +768,7 @@ class TestLifeCycle(unittest.TestCase):
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -920,7 +880,7 @@ class TestLifeCycle(unittest.TestCase):
         debug_want:
             N/A
         """
-        before = utils_lib.run_cmd(self, 'last reboot -F full')
+        before = utils_lib.run_cmd(self, 'last reboot --time-format full')
         if not self.vm:
             self.skipTest('no vm provider found')
         self.vm.reboot(wait=True)
@@ -930,7 +890,7 @@ class TestLifeCycle(unittest.TestCase):
         self.assertEqual(
             self.vm.vm_username, output,
             "Reboot VM error: output of cmd `who` unexpected -> %s" % output)
-        after = utils_lib.run_cmd(self, 'last reboot -F full')
+        after = utils_lib.run_cmd(self, 'last reboot --time-format full')
         self.assertNotEqual(
             before, after,
             "Reboot VM error: before -> %s; after -> %s" % (before, after))
@@ -964,7 +924,7 @@ class TestLifeCycle(unittest.TestCase):
         debug_want:
             N/A
         """
-        before = utils_lib.run_cmd(self, 'last reboot -F full|wc -l')
+        before = utils_lib.run_cmd(self, 'last reboot --time-format full|wc -l')
         utils_lib.run_cmd(self, 'sudo reboot')
         time.sleep(10)
         utils_lib.init_connection(self, timeout=self.ssh_timeout)
@@ -973,7 +933,7 @@ class TestLifeCycle(unittest.TestCase):
             self.assertEqual(
                 self.vm.vm_username, output.strip(),
                 "Reboot VM error: output of cmd `who` unexpected -> %s" % output)
-        after = utils_lib.run_cmd(self, 'last reboot -F full|wc -l')
+        after = utils_lib.run_cmd(self, 'last reboot --time-format full|wc -l')
         self.assertNotEqual(
             before, after,
             "Reboot VM error: before -> %s; after -> %s" % (before, after))
@@ -991,7 +951,7 @@ class TestLifeCycle(unittest.TestCase):
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -1099,16 +1059,7 @@ class TestLifeCycle(unittest.TestCase):
         self._start_vm_and_check()
 
     def _update_kernel_args(self, boot_param_required):
-        if utils_lib.is_ostree_system(self):
-            cat_proc_cmdline = utils_lib.run_cmd(self, 'cat /proc/cmdline')
-            key = boot_param_required.split('=')[0]
-            for param in cat_proc_cmdline.split(' '):
-                if param.startswith(key + '='):
-                    cmd = 'sudo rpm-ostree kargs --replace="{}={}"'.format(param.rstrip(), boot_param_required.split('=')[1])
-                else:
-                    cmd = 'sudo rpm-ostree kargs --append="{}"'.format(boot_param_required)
-        else:
-            cmd = 'sudo grubby --update-kernel=ALL --args="{}"'.format(boot_param_required)
+        cmd = 'sudo grubby --update-kernel=ALL --args="{}"'.format(boot_param_required)
         utils_lib.run_cmd(self, cmd, msg="append {} to boot params".format(boot_param_required))
         utils_lib.run_cmd(self, 'sudo reboot', msg='reboot system under test')
         time.sleep(10)
@@ -1382,9 +1333,8 @@ class TestLifeCycle(unittest.TestCase):
             N/A
         maintainer:
             xiliang@redhat.com
-        description: |
+        description:
             Test system hibernation and process is still running after resumed
-            For aws, please check for prerequisites https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/hibernating-prerequisites.html#hibernation-prereqs-supported-instance-families
         key_steps: |
             1. enable hibernation on system
             2. start a test process, eg. sleep 1800
@@ -1411,15 +1361,12 @@ class TestLifeCycle(unittest.TestCase):
             utils_lib.init_connection(self, timeout=self.ssh_timeout)
             product_id = utils_lib.get_os_release_info(self, field='VERSION_ID')
             if float(product_id) >= 8.0 and float(product_id) < 9.0:
-                utils_lib.run_cmd(self, 'sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm -y',msg='Installepel repo')
-                utils_lib.run_cmd(self, 'sudo yum install ec2-hibinit-agent -y',msg='Install ec2-hibinit-agent')
-                utils_lib.run_cmd(self, 'sudo systemctl enable hibinit-agent.service',msg='Start ec2-hibinit-agent')
+                pkg_url='https://dl.fedoraproject.org/pub/epel/8/Everything/x86_64/Packages/e/ec2-hibinit-agent-1.0.5-1.el8.noarch.rpm'
             elif float(product_id) < 8.0:
                 self.skipTest('not supported earlier than rhel8')
             else:
-                utils_lib.run_cmd(self, 'sudo yum install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm -y',msg='Installepel repo')
-                utils_lib.run_cmd(self, 'sudo yum install ec2-hibinit-agent -y',msg='Install ec2-hibinit-agent')
-                utils_lib.run_cmd(self, 'sudo systemctl enable --now hibinit-agent.service',msg='Enable ec2-hibinit-agent')
+                pkg_url = "https://dl.fedoraproject.org/pub/epel/9/Everything/x86_64/Packages/e/ec2-hibinit-agent-1.0.5-1.el9.noarch.rpm"
+            utils_lib.pkg_install(self, pkg_name='ec2-hibinit-agent', pkg_url=pkg_url, force=True)
             cmd = 'sudo systemctl is-enabled hibinit-agent.service'
             output = utils_lib.run_cmd(self, cmd)
             if 'enabled' not in output:
@@ -1719,28 +1666,16 @@ class TestLifeCycle(unittest.TestCase):
     def tearDown(self):
         utils_lib.finish_case(self)
         reboot_require = False
-        if utils_lib.is_ostree_system(self):
-            addon_args = ['hpet_mmap=1', 'mitigations=auto,nosmt', 'usbcore.quirks=quirks=0781:5580:bk,0a5c:5834:gij',
-                'nr_cpus=1', 'nr_cpus=2', 'nr_cpus=4', 'nr_cpus=5', 'intel_iommu=on', 'fips=1', 'mem_encrypt=on']
-        else:
-            addon_args = ['hpet_mmap=1', 'mitigations=auto,nosmt', 'usbcore.quirks=quirks=0781:5580:bk,0a5c:5834:gij',
-                'nr_cpus=1', 'nr_cpus=2', 'nr_cpus=4', 'nr_cpus=5', 'intel_iommu=on', 'fips=1', 'mem_encrypt=on', 'boot']
-
+        addon_args = ["hpet_mmap=1", "mitigations=auto,nosmt", "usbcore.quirks=quirks=0781:5580:bk,0a5c:5834:gij",
+        "nr_cpus=1","nr_cpus=2", "nr_cpus=4", "nr_cpus=5", "intel_iommu=on", "fips=1","mem_encrypt=on"]
         cmdline = utils_lib.run_cmd(self, 'cat /proc/cmdline')
-        if cmdline is None:
-            self.log.info("Failed to retrieve /proc/cmdline. Check system logs.")
-            self.log.info(cmdline)
-            cmdline = ""
-        args_to_remove = [arg for arg in addon_args if arg in cmdline]
-        if args_to_remove:
-            if utils_lib.is_ostree_system(self):
-                cmd = 'sudo rpm-ostree kargs --delete={}'
-            else:
-                cmd = 'sudo grubby --update-kernel=ALL --remove-args={}'
-            for arg in args_to_remove:
-                utils_lib.run_cmd(self, cmd.format(arg), msg='Remove {}'.format(arg))
-                reboot_require = True
-
+        if cmdline:
+            for arg in addon_args:
+                if arg in cmdline:
+                    cmd = 'sudo grubby --update-kernel=ALL  --remove-args={}'.format(arg)
+                    utils_lib.run_cmd(self, cmd, msg='Remove {}'.format(arg))
+                    reboot_require = True
+        
         if "boot_debugkernel" in self.id():
             current_boot_kernel = utils_lib.run_cmd(self, "sudo grubby --default-kernel", expect_ret=0)
             current_cmdline = utils_lib.run_cmd(self, 'cat /proc/cmdline')

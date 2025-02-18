@@ -178,7 +178,7 @@ class TestNetworkTest(unittest.TestCase):
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -255,7 +255,7 @@ class TestNetworkTest(unittest.TestCase):
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -318,7 +318,7 @@ class TestNetworkTest(unittest.TestCase):
         importance:
             high
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -1032,7 +1032,7 @@ COMMIT
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -1054,7 +1054,7 @@ COMMIT
         test_type:
             functional
         test_level:
-           component
+           Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -1096,8 +1096,7 @@ COMMIT
             self.skipTest("2 nodes required, current IP bucket:{}".format(self.params['remote_nodes']))
         self.log.info("Current IP bucket:{}".format(self.params['remote_nodes']))
         k_ver = utils_lib.run_cmd(self,'uname -r').strip('\n')
-        cmd = "sudo ethtool -k {} | grep checksum".format(self.active_nic)
-        utils_lib.run_cmd(self, cmd)
+        utils_lib.run_cmd(self,'sudo ethtool -k eth0|grep checksum')
         if 'not found' in utils_lib.run_cmd(self,'modinfo sch_netem'):
             if not 'debug' in k_ver:
                 utils_lib.is_pkg_installed(self,'kernel-modules-extra-{}'.format(k_ver))
@@ -1121,7 +1120,7 @@ COMMIT
             utils_lib.run_cmd(self,cmd,timeout=300,msg='create a 500M file')
             if i:
                 utils_lib.run_cmd(self,'sudo modprobe sch_netem', msg='manually load sch_netem due to RHEL-52279')
-                cmd = "sudo tc qdisc add dev {} root netem corrupt 1%".format(self.active_nic)
+                cmd = "sudo tc qdisc add dev eth0 root netem corrupt 1%"
                 utils_lib.run_cmd(self,cmd,expect_ret=0,msg='Test again with network corrupt 1%')
                 utils_lib.init_connection(self, timeout=self.ssh_timeout)
             nc_cli_cmd = 'nc {} 2233 < {}'.format(srv_ipv4,testfile_c)
@@ -1135,7 +1134,7 @@ COMMIT
             self.assertEqual(md5_client, md5_server)
             utils_lib.run_cmd(self,'rm -rf {}'.format(testfile_c),msg='delete the test data file')
             if i:
-                cmd = "sudo tc qdisc delete dev {} root netem corrupt 1%".format(self.active_nic)
+                cmd = "sudo tc qdisc delete dev eth0 root netem corrupt 1%"
                 utils_lib.run_cmd(self,cmd,msg='remove network corrupt setting')
                 utils_lib.init_connection(self, timeout=self.ssh_timeout)
             self.log.info("test {} tcp corrupt done".format(i and 'with' or 'without'))
@@ -1352,13 +1351,13 @@ COMMIT
         """
         if not self.vm or self.vm.provider != "aws":
             self.skipTest("Skip test case since instance is not aws vm")
-        run_cmd(self, 'modinfo efa', expect_ret=0, msg='get efa module info')
-        run_cmd(self, 'modinfo ena', expect_ret=0, msg='get efa module info')
-        if not self.vm.efa_support:
-            self.skipTest('EFA is not supported on the instance ' + self.vm.instance_type)
-        cmd = 'lspci|grep EFA && lsmod|grep efa'
-        run_cmd(self, cmd, expect_ret=0, msg='check if EFA device exist and efa module is loaded')
-        self.log.info('EFA device is found and efa driver is loaded on the instance ' + self.vm.instance_type)
+        else:
+            instance_type = self.vm.instance_type
+            if not self.vm.efa_support:
+                self.skipTest('EFA is not supported on the instance ' + instance_type)
+            cmd = 'lspci|grep EFA && lsmod|grep efa'
+            run_cmd(self, cmd, expect_ret=0, msg='check if EFA device exist and efa module is loaded')
+            self.log.info('EFA device is found and efa driver is loaded on the instance ' + instance_type)
             
     @unittest.skipUnless(os.getenv('INFRA_PROVIDER') == 'aws', 'aws dedicated feature')
     def test_install_libfabric_check_efa_provider(self):
@@ -1392,13 +1391,15 @@ COMMIT
         """
         if not self.vm or self.vm.provider != "aws":
             self.skipTest("Skip test case since instance is not vm or aws")
-        if not self.vm.efa_support:
-            self.skipTest('EFA is not supported on the instance ' + self.vm.instance_type)
-        if utils_lib.is_pkg_installed(self,'libfabric'):
-            cmd = 'fi_info -p efa'
-            utils_lib.run_cmd(self, cmd, expect_ret=0, expect_kw="provider: efa", msg='Check the Libfabric EFA interfaces')
-            cmd = "sudo  bash -c 'fi_pingpong -e rdm -p efa -I 100 & sleep 2; fi_pingpong -e rdm -p efa localhost -I 100'"
-            utils_lib.run_cmd(self, cmd, expect_ret=0, msg='run pingpong test')
+        else:
+            instance_type = self.vm.instance_type
+            if not self.vm.efa_support:
+                self.skipTest('EFA is not supported on the instance ' + instance_type)
+            if utils_lib.is_pkg_installed(self,'libfabric'):
+                cmd = 'fi_info -p efa'
+                utils_lib.run_cmd(self, cmd, expect_ret=0, expect_kw="provider: efa", msg='Check the Libfabric EFA interfaces')
+                cmd = "sudo  bash -c 'fi_pingpong -e rdm -p efa -I 100 & sleep 2; fi_pingpong -e rdm -p efa localhost -I 100'"
+                utils_lib.run_cmd(self, cmd, expect_ret=0, msg='run pingpong test')
 
     @unittest.skipUnless(os.getenv('INFRA_PROVIDER') == 'aws', 'aws dedicated feature')        
     def test_load_unload_efa_driver(self):
@@ -1432,22 +1433,24 @@ COMMIT
         """
         if not self.vm or self.vm.provider != "aws":
             self.skipTest("Skip test case since instance is not vm or aws")
-        if not self.vm.efa_support:
-            self.skipTest('EFA is not supported on the instance ' + self.vm.instance_type)
-        self.dmesg_cursor = utils_lib.get_cmd_cursor(self, cmd='sudo dmesg -T')
-        cmd = 'sudo modprobe -r efa'
-        run_cmd(self, cmd, ret_status=True, msg='unload efa driver')
-        cmd = 'lsmod|grep efa'
-        ret = run_cmd(self, cmd, ret_status=True, msg='check if efa driver is unloaded')
-        if ret == 1:
-            self.log.info('efa driver is unloaded successfully')
-        cmd = 'sudo modprobe efa'
-        run_cmd(self, cmd, ret_status=True, msg='reload efa driver')
-        cmd = 'lsmod|grep efa'
-        ret = run_cmd(self, cmd, ret_status=True, msg='check if EFA driver is loaded')
-        utils_lib.check_log(self, "error,warn,fail,trace,Trace", log_cmd='sudo dmesg -T', cursor=self.dmesg_cursor)
-        if ret == 0:
-            self.log.info('efa driver is loaded successfully')
+        else:
+            instance_type = self.vm.instance_type
+            if not self.vm.efa_support:
+                self.skipTest('EFA is not supported on the instance ' + instance_type)
+            self.dmesg_cursor = utils_lib.get_cmd_cursor(self, cmd='sudo dmesg -T')
+            cmd = 'sudo modprobe -r efa'
+            run_cmd(self, cmd, ret_status=True, msg='unload efa driver')
+            cmd = 'lsmod|grep efa'
+            ret = run_cmd(self, cmd, ret_status=True, msg='check if efa driver is unloaded')
+            if ret == 1:
+                self.log.info('efa driver is unloaded successfully')
+            cmd = 'sudo modprobe efa'
+            run_cmd(self, cmd, ret_status=True, msg='reload efa driver')
+            cmd = 'lsmod|grep efa'
+            ret = run_cmd(self, cmd, ret_status=True, msg='check if EFA driver is loaded')
+            utils_lib.check_log(self, "error,warn,fail,trace,Trace", log_cmd='sudo dmesg -T', cursor=self.dmesg_cursor)
+            if ret == 0:
+                self.log.info('efa driver is loaded successfully')
 
     @unittest.skipUnless(os.getenv('INFRA_PROVIDER') == 'aws', 'aws dedicated feature')
     def test_attach_detach_efa_device(self):
@@ -1614,8 +1617,9 @@ COMMIT
         if not self.vm:
             self.skipTest("Skip test case since instance is not vm")
 
+        instance_type = self.vm.instance_type
         if not self.vm.efa_support:
-            self.skipTest('EFA is not supported on the instance ' + self.vm.instance_type)
+            self.skipTest('EFA is not supported on the instance ' + instance_type)
         if utils_lib.is_pkg_installed(self, 'libfabric'):
             if utils_lib.is_pkg_installed(self,'openmpi'):
                 if utils_lib.is_pkg_installed(self,'git'):
@@ -1856,7 +1860,7 @@ COMMIT
         importance:
             medium
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -1878,7 +1882,7 @@ COMMIT
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             yoguo@redhat.com
         description: |
@@ -2085,7 +2089,7 @@ COMMIT
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -2107,7 +2111,7 @@ COMMIT
         test_type:
             functional
         test_level:
-           component
+           Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -2148,7 +2152,7 @@ COMMIT
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -2222,7 +2226,7 @@ COMMIT
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:

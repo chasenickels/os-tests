@@ -94,13 +94,7 @@ class TestGuestImage(unittest.TestCase):
             if re.search(dev_name, line):
                 count = count + 1
         product_id = utils_lib.get_product_id(self)
-        if float(product_id) >= 10.0:
-            expected_partitions = 4
-            if utils_lib.is_arch(self, arch='s390x'):
-                expected_partitions = 2
-            elif utils_lib.is_arch(self, arch='aarch64') or utils_lib.is_arch(self, arch='ppc64le'):
-                expected_partitions = 3
-        elif float(product_id) >= 9.0:
+        if float(product_id) >= 9.0:
             expected_partitions = 5
             if utils_lib.is_arch(self, arch='s390x'):
                 expected_partitions = 3
@@ -147,7 +141,7 @@ class TestGuestImage(unittest.TestCase):
             N/A
         """
         product_id = utils_lib.get_product_id(self)
-        if float(product_id) >= 9.0 and float(product_id) < 10.0  and (
+        if float(product_id) >= 9.0 and (
                 utils_lib.is_arch(self, arch='aarch64')
                 or utils_lib.is_arch(self, arch='x86_64')):
             cmd = "lsblk -n -o PARTTYPE,MOUNTPOINT | grep '/boot$'"
@@ -159,7 +153,7 @@ class TestGuestImage(unittest.TestCase):
                           "Boot partition GUID incorrect: %s" % output)
         else:
             self.skipTest(
-                "Only run on RHEL 9.x on x86_64 or aarch64.")
+                "Only run on RHEL 9.x or later on x86_64 or aarch64.")
 
     def test_check_etc_sysconfig_kernel(self):
         """
@@ -252,9 +246,6 @@ class TestGuestImage(unittest.TestCase):
             self.assertNotEqual(
                 testline, "", "GRUB_CMDLINE_LINUX is not set in /etc/default/grub")
             for line in lines:
-                # For RHEL 10 and later, skip the check for 'net.ifnames=0'
-                if line == "net.ifnames=0" and x >= 10:
-                    continue
                 self.assertIn(line, testline,
                               "%s is not in GRUB_CMDLINE_LINUX" % line)
 
@@ -489,7 +480,6 @@ class TestGuestImage(unittest.TestCase):
             self,
             cmd,
             expect_ret=0,
-            timeout=600,
             msg="check selinux label through restorecon")
         cmd = "grep -vxFf {0} {1} > /tmp/cmp".format(dest_path, selinux_now)
         output = utils_lib.run_cmd(self,
@@ -533,39 +523,16 @@ class TestGuestImage(unittest.TestCase):
         """
         product_id = utils_lib.get_product_id(self)
         data_file = "rogue.el%s.lst" % product_id.split('.')[0]
-        utils_script_py = "rogue.py"
-        utils_script_sh = "rogue.sh"
-        src_path_py = self.data_dir + '/guest-images/' + utils_script_py
-        src_path_sh = self.data_dir + '/guest-images/' + utils_script_sh
-        dest_path_py = '/tmp/' + utils_script_py
-        dest_path_sh = '/tmp/' + utils_script_sh
-        self.SSH.put_file(local_file=src_path_py, rmt_file=dest_path_py)
-        self.SSH.put_file(local_file=src_path_sh, rmt_file=dest_path_sh)
-
-        utils_lib.is_pkg_installed(self,"python3")
-        cmd = "python3 --version"
-        ret = utils_lib.run_cmd(self, cmd, msg="Check if python3 exist")
-        print(f"python3 version check output: {ret}")
-        if ret.strip() and "Python" in ret:
-            print("python3 found; running rogue.py with python3.")
-            cmd = "sudo python3 %s" % dest_path_py
-            output = utils_lib.run_cmd(self,
+        utils_script = "rogue.sh"
+        src_path = self.data_dir + '/guest-images/' + utils_script
+        dest_path = '/tmp/' + utils_script
+        self.SSH.put_file(local_file=src_path, rmt_file=dest_path)
+        cmd = "sudo sh -c 'chmod 755 %s && %s'" % (dest_path, dest_path)
+        output = utils_lib.run_cmd(self,
                                    cmd,
                                    expect_ret=0,
-                                   timeout=1200,
-                                   msg="run rogue.py")
-        else:
-            print("python3 not found; running rogue.sh as a shell script instead.")
-            cmd = "sudo sh -c 'chmod 755 %s && %s'" % (dest_path_sh, dest_path_sh)
-            output = utils_lib.run_cmd(self,
-                                   cmd,
-                                   expect_ret=0,
-                                   timeout=600,
+                                   timeout=300,
                                    msg="run rogue.sh")
-        cmd = "test -f /tmp/rogue && echo 'File exists' || echo 'File does not exist'"
-        output = utils_lib.run_cmd(self, cmd, expect_ret=0, msg="Check if /tmp/rogue exists")
-        self.assertEqual(output.strip(), 'File exists', "rogue.py failed to create /tmp/rogue")
-
         src_path = self.data_dir + '/guest-images/' + data_file
         dest_path = '/tmp/' + data_file
         self.SSH.put_file(local_file=src_path, rmt_file=dest_path)
@@ -677,7 +644,7 @@ class TestGuestImage(unittest.TestCase):
             N/A
         """
         for count in utils_lib.iterate_timeout(
-                600, "Timed out waiting for getting IP address."):
+                120, "Timed out waiting for getting IP address."):
             cmd = 'sudo systemctl is-active kdump'
             ret = utils_lib.run_cmd(self,
                                     cmd,
@@ -695,15 +662,10 @@ class TestGuestImage(unittest.TestCase):
                                    cmd,
                                    expect_ret=0,
                                    msg="cat /proc/cmdline")
+        for line in lines:
+            self.assertIn(line, output, "%s is not in boot parameters" % line)
         # crashkernel
         product_id = utils_lib.get_product_id(self)
-        for line in lines:
-            if line == "net.ifnames=0" and float(product_id) >= 10.0:
-                # Skip the check for net.ifnames=0 if the product is RHEL 10 or higher
-                self.log.info("Skipping check for net.ifnames=0 as it is removed in RHEL 10 and later")
-                continue
-            self.assertIn(line, output, "%s is not in boot parameters" % line)
-
         if float(product_id) >= 9.0:
             cmd = "sudo kdumpctl get-default-crashkernel"
             tmp_output = utils_lib.run_cmd(
@@ -918,7 +880,7 @@ class TestGuestImage(unittest.TestCase):
                                    msg="cat /etc/redhat-release")
         match = re.search(r"\d+\.?\d+", output).group(0)
         self.assertEqual(
-            float(self.vm.rhel_ver), float(match),
+            self.vm.rhel_ver, match,
             "Release version mismatch in /etc/redhat-release -> %s" % output)
         if float(self.vm.rhel_ver) >= 8.0:
             cmd = "rpm -q redhat-release"
@@ -946,7 +908,7 @@ class TestGuestImage(unittest.TestCase):
                               output).group(1)
 
         self.assertEqual(
-            float(self.vm.rhel_ver), float(match),
+            self.vm.rhel_ver, match,
             "Release version mismatch on redhat-release-server -> %s" % output)
 
     def tearDown(self):

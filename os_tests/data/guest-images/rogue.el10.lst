@@ -91,17 +91,3 @@
 /root/.ssh/authorized_keys
 /usr/lib/sysimage/rpm/.rpmdbdirsymlink_created
 /usr/share/glib-2.0/schemas/gschemas.compiled
-/etc/systemd/system/multi-user.target.wants/rpcbind.service
-/etc/systemd/system/sockets.target.wants/rpcbind.socket
-/etc/systemd/system/sysinit.target.wants/systemd-confext.service
-/etc/systemd/system/sysinit.target.wants/systemd-sysext.service
-/etc/systemd/system/multi-user.target.wants/kdump.service
-/boot/grub2/fonts/unicode.pf2
-/boot/grub2/grubenv
-/etc/alternatives/libnssckbi.so.ppc64le
-/etc/systemd/system/NetworkManager.service.wants/hcn-init.service
-/etc/systemd/system/multi-user.target.wants/rtas_errd.service
-/boot/dtb
-/etc/alternatives/libnssckbi.so
-/etc/yum.repos.d/beaker-AppStream.repo
-/etc/yum.repos.d/beaker-BaseOS.repo

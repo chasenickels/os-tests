@@ -18,4 +18,3 @@
 .M.......  c /boot/grub2/grub.cfg
 .M.......  c /boot/grub2/grub.cfg
 S.5....T.  c /etc/ssh/sshd_config
-.M.......    /boot/efi/EFI

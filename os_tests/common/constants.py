@@ -1,0 +1,1 @@
+NOT_IMPLEMENTED = "Implemented method in child classes."

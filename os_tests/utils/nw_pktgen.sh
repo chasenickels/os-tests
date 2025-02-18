@@ -52,7 +52,7 @@ if [ $? -ne 0 ]; then
     echo "INFO: Try to install a kernel-module-internal in RHEL-8.1.0 or later"
     echo "INFO: Try to install a kernel-module-internal in RHEL-8.1.0 or later"
 
-    url_pre="xxxx"
+    url_pre="http://download.eng.bos.redhat.com/brewroot/vol/rhel-$1/packages/kernel"
     ver=`uname -r | awk -F "-" {'print $1'}`
     rel=`uname -r | awk -F "-" {'print $2'}`
     rel1=${rel%.*}

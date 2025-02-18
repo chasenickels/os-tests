@@ -325,7 +325,7 @@ cat secret.dec'''
         importance:
             low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -347,7 +347,7 @@ cat secret.dec'''
         test_type:
             functional
         test_level:
-            component
+            Component
         maintainer:
             xiliang@redhat.com
         description: |
@@ -370,7 +370,7 @@ cat secret.dec'''
         if ret != 0:
             self.skipTest("No tpm device found!")
         utils_lib.is_cmd_exist(self, cmd='tpm2_gettime', cancel_case=True)
-        cmd = 'sudo systemctl enable --now tpm2-abrmd.service'
+        cmd = 'systemctl enable --now tpm2-abrmd.service'
         utils_lib.run_cmd(self, cmd)
         cmd = 'systemctl status tpm2-abrmd.service'
         utils_lib.run_cmd(self, cmd, expect_ret=0)

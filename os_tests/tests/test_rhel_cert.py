@@ -58,9 +58,9 @@ class TestRHELCert(unittest.TestCase):
         return True
 
     def _parted_swap_partition(self, root_vol):
-        swap_start = root_vol.size + 4
-        swap_end = root_vol.size + 18
-        if not root_vol.modify_disk_size(expand_num=20):
+        swap_start = root_vol.size + 3
+        swap_end = root_vol.size + 8
+        if not root_vol.modify_disk_size(expand_num=10):
             self.fail("cannot extend disk size")
         parts = utils_lib.run_cmd(self, "lsblk -r -o NAME,TYPE|grep part|sort|awk -F' ' '{print $1}'")
         tmp_parts_list = parts.split('\n')
@@ -76,12 +76,7 @@ class TestRHELCert(unittest.TestCase):
         self.log.info("boot disk:{}, new part:{}".format(root_disk,new_part))
         part_count = utils_lib.run_cmd(self, "lsblk|grep part|wc -l")
         part_count = int(part_count.strip('\n')) + 1
-        sg_cmd = 'sudo sgdisk {} -e'.format(root_disk)
-        product_id = utils_lib.get_os_release_info(self, field='VERSION_ID')
-        if float(product_id) >= 10.0:
-            self.log.info("sgdisk was deprecated in RHEL-10, try ignition-sgdisk")
-            sg_cmd = 'sudo /usr/libexec/ignition-sgdisk -e {}'.format(root_disk)
-        cmds = [sg_cmd,
+        cmds = ['sudo sgdisk {} -e'.format(root_disk),
             'sudo parted -s {} print'.format(root_disk),
             'sudo parted -s {} mkpart swap xfs {}G {}G'.format(root_disk,swap_start,swap_end),
             'sudo parted -s {} print'.format(root_disk),
@@ -159,8 +154,7 @@ class TestRHELCert(unittest.TestCase):
         self.log.info("Pick up nic {}".format(self.active_nic ))
         cmd = "ip addr show {}".format(self.active_nic )
         output = utils_lib.run_cmd(self, cmd, expect_ret=0, rmt_node=self.params['remote_nodes'][-1], msg='try to get {} ipv4 address'.format(self.active_nic ))
-        pat = re.compile("\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}")
-        self.rmt_ipv4 = pat.findall(output)[0]
+        self.rmt_ipv4 = re.findall('[\d.]{7,16}', output)[0]
         cmd = 'sudo bash -c "rhcertd start"'
         utils_lib.run_cmd(self, cmd, expect_ret=0, rmt_node=self.params['remote_nodes'][-1], msg="start rhcertd on test server")
         cmd = 'sudo cat /root/.ssh/id_rsa.pub'
@@ -215,7 +209,7 @@ class TestRHELCert(unittest.TestCase):
         importance:
             Low
         subsystem_team:
-            rhel-sst-virtualization-cloud
+            sst_virtualization_cloud
         automation_drop_down:
             automated
         linked_work_items:
@@ -281,6 +275,7 @@ class TestRHELCert(unittest.TestCase):
         cmd = 'sudo bash -c "yes|rhcert-cli plan"'
         auto_plan = utils_lib.run_cmd(self,cmd, timeout=3600, msg='create test plan')
         subtests = []
+        #if not utils_lib.is_metal(self):
         subtests.append('hwcert/memory')
         # case name denpends on cert pkg version, the latest cert tool cannot recognize hwcert/xxx cases
         subtests.append('memory')
@@ -323,16 +318,16 @@ class TestRHELCert(unittest.TestCase):
         utils_lib.run_cmd(self,cmd, timeout=1800, msg='create test plan')
         utils_lib.run_cmd(self, 'lscpu', expect_ret=0, cancel_not_kw="Xen", msg="Not support in xen instance")
         cmd = 'sudo bash -c "yes|rhcert-cli run --test kdump --device local"'
-        utils_lib.run_cmd(self,cmd, timeout=3600, msg='run kdump local test')
+        utils_lib.run_cmd(self,cmd, timeout=1800, msg='run kdump local test')
         if not self.SSH.is_active():
-            utils_lib.init_connection(self, timeout=self.ssh_timeout*2)
+            utils_lib.init_connection(self, timeout=self.ssh_timeout)
         time.sleep(30)
         self._wait_cert_done(prefix='local')
         utils_lib.is_pkg_installed(self,'nfs-utils')
         cmd = 'sudo bash -c "yes|rhcert-cli run --test kdump --device nfs --server {}"'.format(self.rmt_ipv4)
-        utils_lib.run_cmd(self,cmd, timeout=3600, msg='run kdump nfs test')
+        utils_lib.run_cmd(self,cmd, timeout=1800, msg='run kdump nfs test')
         if not self.SSH.is_active():
-            utils_lib.init_connection(self, timeout=self.ssh_timeout*2)
+            utils_lib.init_connection(self, timeout=self.ssh_timeout)
         time.sleep(30)
         self._wait_cert_done(prefix='nfs')
 
@@ -375,16 +370,16 @@ class TestRHELCert(unittest.TestCase):
         cmd = 'sudo bash -c "yes|rhcert-cli plan"'
         utils_lib.run_cmd(self,cmd, timeout=1800, msg='create test plan')
         cmd = 'sudo bash -c "yes|rhcert-cli run --test kdump --device local"'
-        utils_lib.run_cmd(self,cmd, timeout=3600, msg='run kdump local test')
+        utils_lib.run_cmd(self,cmd, timeout=1800, msg='run kdump local test')
         if not self.SSH.is_active():
-            utils_lib.init_connection(self, timeout=self.ssh_timeout*8)
+            utils_lib.init_connection(self, timeout=self.ssh_timeout)
         time.sleep(30)
         self._wait_cert_done(prefix='local_irqpoll')
         utils_lib.is_pkg_installed(self,'nfs-utils')
         cmd = 'sudo bash -c "yes|rhcert-cli run --test kdump --device nfs --server {}"'.format(self.rmt_ipv4)
-        utils_lib.run_cmd(self,cmd, timeout=3600, msg='run kdump nfs test')
+        utils_lib.run_cmd(self,cmd, timeout=1800, msg='run kdump nfs test')
         if not self.SSH.is_active():
-            utils_lib.init_connection(self, timeout=self.ssh_timeout*2)
+            utils_lib.init_connection(self, timeout=self.ssh_timeout)
         time.sleep(30)
         self._wait_cert_done(prefix='nfs_irqpoll')
 
