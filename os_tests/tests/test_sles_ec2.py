@@ -1,6 +1,6 @@
 import json
-import unittest
 import shlex
+import unittest
 
 from os_tests.libs import utils_lib
 from os_tests.libs.file import File
@@ -135,7 +135,7 @@ class TestSLES(unittest.TestCase):
             self.fail(f"Image ISO not found for region: {current_region}")
         elif size != '1214599168':
             self.fail(f"Download failed. Size: {str(size)}")
-        
+
     def test_sles_ec2_services(self):
         services = [
             'cloud-init-local',
@@ -187,11 +187,62 @@ class TestSLES(unittest.TestCase):
 
         self.assertNotEqual(result, "linux")
 
-    # def test_sles_kernel_version(self):
-    #     pass
+    def test_sles_kernel_version(self):
+        version = utils_lib.get_os_release_info(self, "VERSION")
+        self.assertIsNotNone(version)
+        pretty_name = utils_lib.get_os_release_info(self, "PRETTY_NAME")
+        self.assertIsNotNone(pretty_name)
 
-    # def test_sles_license(self):
-    #     pass
+        if version in ('11.4', '12-SP1', '12-SP2', '12-SP3'):
+            self.skipTest("Whoops! Image does not have version in kernel config.")
+
+        if "micro" in pretty_name.lower():
+            self.skipTest("Micro has product version instead of SLE verison.")
+
+        version = version.split("-SP")
+        desired_config_suse_version = f"CONFIG_SUSE_VERSION={version[0]}"
+        result = utils_lib.run_cmd(
+            self,
+            cmd=f"sudo zcat /proc/config.gz | grep -q {desired_config_suse_version}",
+            ret_status=True
+        )
+        self.assertTrue(result == 0)
+        if len(version) > 1:
+            desired_config_version_patchlevel = f"CONFIG_SUSE_PATCHLEVEL={version[1]}"
+            result = utils_lib.run_cmd(
+                self,
+                cmd=f"sudo zcat /proc/config.gz | grep -q {desired_config_version_patchlevel}",
+                ret_status=True
+            )
+            self.assertTrue(result == 0)
+
+    def confirm_license_content(self, license_dirs, license_content):
+        for dir in license_dirs:
+            if self.file.exists(dir) and self.file.is_directory(dir):
+                license = dir + "license.txt"
+                return all([
+                    self.file.exists(license),
+                    self.file.is_file(license),
+                    any(self.file.contains(content, license) for content in license_content)
+                ])
+
+
+    def test_sles_license(self):
+        license_dirs = [
+            '/etc/YaST2/licenses/base/',
+            '/etc/YaST2/licenses/SLES/',
+            '/usr/share/licenses/product/base/',
+            '/usr/share/licenses/product/SLES/'
+        ]
+        license_content = [
+            'SUSE End User License Agreement',
+            'SUSE(R) Linux Enterprise End User License Agreement',
+            'SUSE® Linux Enterprise End User License Agreement',
+            'End User License Agreement for SUSE Products'
+        ]
+
+        result = self.confirm_license_content(license_dirs, license_content)
+        self.assertTrue(result)
 
     def test_sles_lscpu(self):
         result = utils_lib.run_cmd(

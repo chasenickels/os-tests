@@ -2974,7 +2974,7 @@ def is_service_running(test_instance, service_name):
 
     if ret == 0:
         return True
-    
+
     return False
 
 def service_result(test_instance, service_name):
