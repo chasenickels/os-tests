@@ -2968,3 +2968,19 @@ def is_service_enabled(test_instance, service_name):
         return True
 
     return False
+
+def is_service_running(test_instance, service_name):
+    ret = run_cmd(test_instance, f"systemctl status {service_name}", ret_status=True)
+
+    if ret == 0:
+        return True
+    
+    return False
+
+def service_result(test_instance, service_name):
+    ret = run_cmd(test_instance, f"systemctl show -p Result {service_name} | sed 's/Result=//g'")
+
+    if ret.strip("\n") == "success":
+        return True
+
+    return False

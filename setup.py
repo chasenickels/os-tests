@@ -19,7 +19,9 @@ setuptools.setup(
             'docs/*',
             'data/*',
             'templates/*',
-            'utils/*'
+            'utils/*',
+            'distros/*',
+            'common/*'
         ]
     },
     include_package_data=True,
