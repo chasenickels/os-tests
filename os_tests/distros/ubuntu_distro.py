@@ -31,3 +31,7 @@ class Ubuntu(Distro):
     def get_update_cmd(self):
         """Return command to update Ubuntu instance."""
         return "apt-get update -y"
+    
+    def is_pkg_installed(self, pkg_name=None):
+        """Return command to list if package is installed for RHEL."""
+        return f"dpkg -l {pkg_name}"

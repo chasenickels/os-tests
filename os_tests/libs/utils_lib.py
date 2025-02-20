@@ -34,23 +34,26 @@ except ImportError:
 LOG = logging.getLogger("os_tests.os_tests_run")
 
 
-def init_distro(cls):
-    distro = get_os_release_info(cls, field="ID").rstrip("\n| ")
+def init_distro(test_instance):
+    distro = get_os_release_info(test_instance, field="ID").rstrip("\n| ")
     if distro == "rhel":
         from os_tests.distros import rhel_distro
 
         return rhel_distro.RHEL()
 
-    if distro == "ubuntu":
-        from os_tests.distros import ubuntu_distro
-
-        return ubuntu_distro.Ubuntu()
-
     if distro == "sles":
         from os_tests.distros import suse_distro
 
         return suse_distro.SLES()
+    else:
+        distro = run_cmd(test_instance, "lsb_release -s -i").strip("\n").lower()
+        if distro.lower() == "ubuntu":
 
+            from os_tests.distros import ubuntu_distro
+
+            return ubuntu_distro.Ubuntu()
+        else:
+            test_instance.fail("OS unsupported")
 
 def init_args():
     parser = argparse.ArgumentParser(
@@ -2152,7 +2155,7 @@ def get_product_id(test_instance):
 
 def get_os_release_info(test_instance, field="VERSION_ID"):
     data_file = "/etc/os-release"
-    cmd = "source {} ;echo ${}".format(data_file, field)
+    cmd = 'source {} ;echo ${}'.format(data_file, field)
     output = run_cmd(
         test_instance, cmd, expect_ret=0, msg="get {} from {}".format(field, data_file)
     )
