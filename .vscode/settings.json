@@ -1,0 +1,14 @@
+{
+    "workbench.colorTheme": "Visual Studio Dark - C++",
+    "github.copilot.enable": {
+        "*": false,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true
+    },
+    "editor.formatOnSave": true
+}
