@@ -55,6 +55,7 @@ def init_distro(test_instance):
         else:
             test_instance.fail("OS unsupported")
 
+
 def init_args():
     parser = argparse.ArgumentParser(
         description="os-tests is a lightweight, fast check and tests collection for Linux OS."
@@ -2155,7 +2156,7 @@ def get_product_id(test_instance):
 
 def get_os_release_info(test_instance, field="VERSION_ID"):
     data_file = "/etc/os-release"
-    cmd = 'source {} ;echo ${}'.format(data_file, field)
+    cmd = "source {} ;echo ${}".format(data_file, field)
     output = run_cmd(
         test_instance, cmd, expect_ret=0, msg="get {} from {}".format(field, data_file)
     )
@@ -2965,12 +2966,14 @@ def determine_architecture(test_instance):
     result = run_cmd(test_instance, "uname --m")
     return result.strip("\n")
 
+
 def is_service_enabled(test_instance, service_name):
     result = run_cmd(test_instance, f"systemctl is-enabled {service_name}")
     if result.strip("\n") == "enabled":
         return True
 
     return False
+
 
 def is_service_running(test_instance, service_name):
     ret = run_cmd(test_instance, f"systemctl status {service_name}", ret_status=True)
@@ -2980,10 +2983,31 @@ def is_service_running(test_instance, service_name):
 
     return False
 
+
 def service_result(test_instance, service_name):
-    ret = run_cmd(test_instance, f"systemctl show -p Result {service_name} | sed 's/Result=//g'")
+    ret = run_cmd(
+        test_instance, f"systemctl show -p Result {service_name} | sed 's/Result=//g'"
+    )
 
     if ret.strip("\n") == "success":
         return True
 
     return False
+
+
+def replace_string(bad_string: str, good_string: str, target_file: str, stig_id: str):
+    with open(target_file, "r") as f:
+        for line in f:
+            bad_match = re.match(bad_string, line)
+            good_match = re.match(good_string, line)
+            if good_match:
+                return f"{good_string} found in {target_file}, per {stig_id}."
+            if bad_match:
+                bad_match = bad_match.string.strip("\n")
+                cmd = f"sed -ri 's/{bad_match}/{good_string}/g' {target_file}"
+                new_cmd = f'sudo bash -c "{cmd}"'
+                run_cmd(
+                    new_cmd,
+                )
+                return f"{bad_match} replaced with {good_string}, per {stig_id}."
+    run_cmd(f"echo {good_string} >> {target_file}")
