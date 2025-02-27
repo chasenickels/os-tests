@@ -1,6 +1,7 @@
 import unittest
 import json
 import time
+import uuid
 
 from os_tests.libs import utils_lib
 from os_tests.libs.volume_manager import VolumeManager
@@ -13,6 +14,7 @@ class TestUbuntu(unittest.TestCase):
         self._volume_manager = VolumeManager("ubuntu", self)
         self._volume_id = self._volume_manager.create_volume(100)
         self.file = File(self)
+        self._mount_dir = f"/data{str(uuid.uuid4())}"
 
     def install_fio(self):
         utils_lib.pkg_install(self, "fio", force=True)
@@ -34,28 +36,30 @@ class TestUbuntu(unittest.TestCase):
                 block_device = f"/dev/{device['name']}"
                 utils_lib.run_cmd(
                     self,
-                    f"mkfs.xfs {block_device} && mkdir /data && mount {block_device} /data",
+                    f"mkfs.xfs -f {block_device} && mkdir {self._mount_dir} && mount -t xfs {block_device} {self._mount_dir}",
                 )
 
-        self.assertTrue(self.file.is_directory("/data"))
+        self.assertTrue(self.file.is_directory({self._mount_dir}))
         self.assertTrue(self.file.contains("data", "/proc/mounts"))
-        fio_command = """fio --name=read_iops_test \
-        --filename=$DEVICE \
-        --filesize=50G \
-        --time_based \
-        --ramp_time=2s \
-        --runtime=1m \
-        --ioengine=libaio \
-        --direct=1 \
-        --verify=0 \
-        --randrepeat=0 \
-        --bs=16K \
-        --iodepth=256 \
-        --rw=randread"""
-        output = utils_lib.run_cmd(self, cmd, ret_status=True)
+        fio_command = f"""fio --name=read_iops_test \
+--filename={block_device} \
+--filesize=50G \
+--time_based \
+--ramp_time=2s \
+--runtime=1m \
+--ioengine=libaio \
+--direct=1 \
+--verify=0 \
+--randrepeat=0 \
+--bs=16K \
+--iodepth=256 \
+--rw=randread"""
+        output = utils_lib.run_cmd(self, fio_command, ret_status=True)
         if output != 0:
             self.fail("Fio command failed!")
 
+    def test_
+
     def tearDown(self):
+        utils_lib.run_cmd(self, f"umount {self._mount_dir} && rm -rf {self._mount_dir}")
         self._volume_manager.delete_volume(self._volume_id)
-        pass

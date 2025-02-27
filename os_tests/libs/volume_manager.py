@@ -5,8 +5,6 @@ import boto3
 import boto3.exceptions
 import requests
 
-from .utils_lib import run_cmd
-
 "https://github.com/adamchainz/ec2-metadata/blob/main/src/ec2_metadata/__init__.py"
 
 

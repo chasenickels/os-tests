@@ -1,9 +1,3 @@
-#!/bin/bash
-function main() {
-# Determining the newly attached device and partition based on device type.
-DEVICE=$(lsblk -o PATH,SIZE | grep 100G | awk '{print $1}')
-[[ $DEVICE == *"nvme"* ]] && PART=p1 || PART=1
-
 DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt dist-upgrade -y && DEBIAN_FRONTEND=noninteractive apt install iperf3 fio -y | tee /home/ubuntu/logfile.txt
 if [[ $(lsb_release -c | awk '{print $2}') == "bionic" ]]; then DEBIAN_FRONTEND=noninteractive apt install ec2-instance-connect -y;fi
 echo "*********** SSH KEY BEGIN **********" | tee -a /home/ubuntu/logfile.txt
@@ -25,38 +19,6 @@ cat > /home/ubuntu/sos.sh <<EOF2
 sudo sos report -a --all-logs --batch
 EOF2
 chmod 755 /home/ubuntu/sos.sh
-
-cat > /home/ubuntu/disk.layout <<EOF3
-label: dos
-label-id: 0x0a7d0f7c
-device: $DEVICE
-unit: sectors
-$DEVICE$PART : start=        2048, size=   209713152, type=83
-EOF3
-
-cat > /home/ubuntu/fio.sh <<EOF4
-#!/bin/bash
-
-if [[ \$(grep data /proc/mounts) ]]; then
-sudo fio --name=read_iops_test \
-  --filename=$DEVICE --filesize=50G \
-  --time_based --ramp_time=2s --runtime=1m \
-  --ioengine=libaio --direct=1 --verify=0 --randrepeat=0 \
-  --bs=16K --iodepth=256 --rw=randread
-else
-    echo "---------------- /data NOT MOUNTED ------------------------------"
-fi
-EOF4
-chmod 755 /home/ubuntu/fio.sh
-
-sfdisk $DEVICE < /home/ubuntu/disk.layout
-sleep 2
-mkfs.xfs -b size=4096 $DEVICE$PART
-mkdir /data
-mount -t xfs $DEVICE$PART /data
-# Needs to stay commented out unless the volume is staying attached to the instance, it will cause emergency mode on reboot
-# because vol cannot be found.
-# echo "$DEVICE$PART    /data    xfs    defaults    0    1" | sudo tee -a /etc/fstab
 
 echo "******** CPU/MEM RESULTS ********" | tee -a /home/ubuntu/logfile.txt
 /home/ubuntu/stuff.sh | tee -a /home/ubuntu/logfile.txt
@@ -107,18 +69,3 @@ echo "******** HOTSOSREPORT RESULTS ********" | tee -a /home/ubuntu/logfile.txt
 sudo hotsos --sosreport /home/ubuntu/sosreport.tar.xz | tee -a /var/log/cloud-init-output.log
 dmesg | tee -a /home/ubuntu/dmesg.txt
 cp /var/log/kern.log /var/log/syslog /var/log/cloud-init-output.log /home/ubuntu
-}
-
-. ./assets/helper-funcs.sh
-install_requirements
-install_aws_cli
-VOLUME_TYPE=$(aws ec2 describe-instances --instance-id $CURRENT_INSTANCE_ID --query 'Reservations[*].Instances[*].RootDeviceType' --output text)
-
-if [ $VOLUME_TYPE != "instance-store" ]; then
-  handle_attach
-  main
-  handle_delete
-else
-  main
-  echo "INSTANCE ROOT VOLUME TYPE DOES NOT SUPPORT ADDITION OF EBS VOLUMES, SKIPPING FIO." | tee -a /home/ubuntu/logfile.txt
-fi
