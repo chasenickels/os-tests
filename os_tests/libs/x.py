@@ -35,6 +35,3 @@ def replace_string(bad_string: str, good_string: str, target_file: str, stig_id:
                 )
                 return f"{bad_match} replaced with {good_string}, per {stig_id}."
     run_cmd(f"echo {good_string} >> {target_file}")
-
-
-# replace_string(r".*poop.*", r"hello", "/tmp/x.txt" , "V-11234")
